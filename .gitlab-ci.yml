@@ -1,0 +1,7 @@
+stages:
+  - deploy
+
+deploy:
+  stage: deploy
+  script:
+    - 'curl --header "Job-Token: $CI_JOB_TOKEN" --data tag=v1.0.0 "https://devrepo.icecorp.ru/api/v4/projects/$CI_PROJECT_ID/packages/composer"'
