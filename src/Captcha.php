@@ -19,6 +19,7 @@ use Illuminate\Contracts\Config\Repository;
 use Illuminate\Hashing\BcryptHasher as Hasher;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\File;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Str;
 use Intervention\Image\Gd\Font;
 use Intervention\Image\Image;
@@ -188,7 +189,7 @@ class Captcha
      * @var bool
      */
     protected $encrypt = true;
-    
+
     /**
      * Constructor
      *
@@ -292,14 +293,17 @@ class Captcha
         if ($this->blur) {
             $this->image->blur($this->blur);
         }
-
+        $key_ = $this->get_cache_key($generator['key']);
         if ($api) {
-            Cache::put($this->get_cache_key($generator['key']), $generator['value'], $this->expire);
+            $redis = Redis::connection();
+            $redis->set($key_, implode($generator['value']),'EX',$this->expire);
+            //Cache::put($this->get_cache_key($generator['key']), $generator['value'], $this->expire);
+
         }
 
         return $api ? [
             'sensitive' => $generator['sensitive'],
-            'key' => $generator['key'],
+            'key' => $key_,
             'img' => $this->image->encode('data-url')->encoded
         ] : $this->image->response('png', $this->quality);
     }
@@ -342,7 +346,7 @@ class Captcha
 
         $hash = $this->hasher->make($key);
         if($this->encrypt) $hash = Crypt::encrypt($hash);
-        
+
         $this->session->put('captcha', [
             'sensitive' => $this->sensitive,
             'key' => $hash,
@@ -483,7 +487,7 @@ class Captcha
 
         return $check;
     }
-    
+
     /**
      * Returns the md5 short version of the key for cache
      *
@@ -492,7 +496,7 @@ class Captcha
      */
     protected function get_cache_key($key) {
         return 'captcha_' . md5($key);
-    }    
+    }
 
     /**
      * Captcha check
@@ -504,15 +508,18 @@ class Captcha
      */
     public function check_api($value, $key, $config = 'default'): bool
     {
-        if (!Cache::pull($this->get_cache_key($key))) {
+        $redis = Redis::connection();
+        $redis_value = $redis->get($key);
+        if (!$redis_value) {
             return false;
         }
+        return $redis_value === $value;
 
-        $this->configure($config);
-
-        if(!$this->sensitive) $value = $this->str->lower($value);
-        if($this->encrypt) $key = Crypt::decrypt($key);
-        return $this->hasher->check($value, $key);
+//        $this->configure($config);
+//
+//        if(!$this->sensitive) $value = $this->str->lower($value);
+//        if($this->encrypt) $key = Crypt::decrypt($key);
+//        return $this->hasher->check($value, $key);
     }
 
     /**
