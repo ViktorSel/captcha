@@ -432,6 +432,7 @@ class Captcha
      */
     protected function angle(): int
     {
+        return 0;
         return rand((-1 * $this->angle), $this->angle);
     }
 
