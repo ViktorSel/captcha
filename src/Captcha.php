@@ -406,7 +406,7 @@ class Captcha
      */
     protected function fontSize(): int
     {
-        return $this->image->height()-5;
+        return $this->image->height()-10;
         return rand($this->image->height() - 10, $this->image->height());
     }
 
